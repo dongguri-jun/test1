@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주식 거래 가능 여부 확인</title>
+    <link rel="stylesheet" href="styles.css"> <!-- 스타일 시트 링크 -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .section {
+            width: 45%;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px #aaa;
+        }
+        #current-time {
+            margin-top: 20px;
+            font-size: 20px;
+            color: blue;
+        }
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #reason {
+            margin-top: 10px;
+            font-size: 18px;
+            color: gray;
+        }
+        #remaining-time {
+            font-size: 18px;
+            color: orange;
+            margin-top: 10px;
+        }
+        .available {
+            color: blue; /* 거래 가능 시 파란색 */
+        }
+        .unavailable {
+            color: red; /* 거래 불가 시 빨간색 */
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>지금 주식 거래가 가능한가요?</h1>
+        <div id="current-time"></div>
+    </header>
+    <main class="container">
+        <section class="section">
+            <h2>국내 주식 거래 정보</h2>
+            <p><strong>정규시간:</strong> 09:00 ~ 15:30</p>
+            <p><strong>동시호가:</strong></p>
+            <p>장 시작 동시호가: 08:30 ~ 09:00</p>
+            <p>장 마감 동시호가: 15:20 ~ 15:30</p>
+            <p><strong>시간외 종가:</strong></p>
+            <p>장전 시간외 종가: 08:30 ~ 08:40 (전일 종가로 거래)</p>
+            <p>장후 시간외 종가: 15:40 ~ 16:00 (당일 종가로 거래)</p>
+            <p><strong>시간외 단일가:</strong> 16:00 ~ 18:00</p>
+            <div id="domestic-result"></div>
+            <div id="domestic-reason"></div>
+            <div id="domestic-remaining-time"></div>
+        </section>
+        <section class="section">
+            <h2>해외 주식 거래 정보 (미국)</h2>
+            <p><strong>거래시간 (국내 기준):</strong> 23:30 ~ 익일 06:00</p>
+            <p><strong>주문가능시간:</strong> 22:30 ~ 익일 06:00</p>
+            <p><strong>예약주문:</strong> 09:00 ~ 22:30</p>
+            <div id="foreign-result"></div>
+            <div id="foreign-reason"></div>
+            <div id="foreign-remaining-time"></div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 주식 거래 웹사이트. 모든 권리 보유.</p>
+    </footer>
+    <script>
+        function checkTradingHours() {
+            const now = new Date();
+            const day = now.getDay(); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+
+            // 국내 주식 거래 여부
+            let domesticTrading = false;
+            let domesticReason = "";
+            let domesticRemainingTime = "";
+
+            const isTradingDay = day >= 1 && day <= 5; // 월~금
+            const isRegularTradingTime = (hours === 9 && minutes >= 0) || 
+                                         (hours > 9 && hours < 15) || 
+                                         (hours === 15 && minutes <= 30);
+            const isPreMarket = (hours === 8 && minutes >= 30 && minutes < 40); // 장전 시간외
+            const isPostMarket = (hours === 15 && minutes >= 40) || (hours === 16 && minutes < 18); // 장후 시간외
+
+            if (isTradingDay && (isRegularTradingTime || isPreMarket || isPostMarket)) {
+                domesticTrading = true;
+            } else {
+                if (!isTradingDay) {
+                    domesticReason = "주말 또는 공휴일입니다.";
+                    domesticRemainingTime = "다음 거래 가능 시간: 월요일 09:00";
+                } else if (!isRegularTradingTime && !isPreMarket && !isPostMarket) {
+                    domesticReason = "정규 거래 시간 또는 시간외 거래 시간이 아닙니다.";
+                    const nextOpen = new Date(now);
+                    if (hours < 8 || (hours === 8 && minutes < 30)) {
+                        nextOpen.setHours(9, 0, 0, 0); // 다음 날 09:00
+                    } else if (hours >= 15 && minutes >= 30) {
+                        nextOpen.setDate(nextOpen.getDate() + 1); // 다음 날로 이동
+                        nextOpen.setHours(9, 0, 0, 0); // 다음 날 09:00
+                    } else {
+                        nextOpen.setHours(9, 0, 0, 0); // 오늘 09:00
+                    }
+                    domesticRemainingTime = `다음 거래 가능 시간: ${nextOpen.toLocaleTimeString()}`;
+                }
+            }
+
+            document.getElementById('domestic-result').innerHTML = `<span class="${domesticTrading ? 'available' : 'unavailable'}">${domesticTrading ? "거래 가능" : "거래 불가"}</span>`;
+            document.getElementById('domestic-reason').innerHTML = domesticReason;
+            document.getElementById('domestic-remaining-time').innerHTML = domesticRemainingTime;
+
+            // 해외 주식 거래 여부
+            let foreignTrading = false;
+            let foreignReason = "";
+            let foreignRemainingTime = "";
+
+            const foreignStart = (hours === 23 && minutes >= 30) || (hours > 23 || (hours === 0 && minutes < 6));
+            const foreignOrderTime = (hours === 22 && minutes >= 30) || (hours > 22 && hours < 24) || (hours === 0 && minutes < 6);
+
+            if (foreignStart) {
+                foreignTrading = true;
+            } else {
+                if (hours < 22 || (hours === 22 && minutes < 30)) {
+                    foreignReason = "거래 가능 시간이 아닙니다.";
+                    const nextOpen = new Date(now);
+                    nextOpen.setHours(22, 30, 0, 0); // 다음 거래 가능 시간
+                    if (nextOpen < now) {
+                        nextOpen.setDate(nextOpen.getDate() + 1); // 다음 날로 이동
+                    }
+                    foreignRemainingTime = `다음 거래 가능 시간: ${nextOpen.toLocaleTimeString()}`;
+                }
+            }
+
+            document.getElementById('foreign-result').innerHTML = `<span class="${foreignTrading ? 'available' : 'unavailable'}">${foreignTrading ? "거래 가능" : "거래 불가"}</span>`;
+            document.getElementById('foreign-reason').innerHTML = foreignReason;
+            document.getElementById('foreign-remaining-time').innerHTML = foreignRemainingTime;
+
+            // 현재 시간 표시
+            document.getElementById('current-time').innerHTML = `현재 시간: ${now.toLocaleString()}`;
+        }
+
+        // 페이지 로드 시 거래 가능 여부 확인
+        window.onload = checkTradingHours;
+
+        // 1초마다 현재 시간 업데이트 및 거래 가능 여부 확인
+        setInterval(() => {
+            checkTradingHours();
+        }, 1000);
+    </script>
+</body>
+</html>
+
